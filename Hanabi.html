@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抛物线礼花效果</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="fireworksCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('fireworksCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let fireworks = [];
+    let particles = [];
+
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+
+    class Firework {
+        constructor(x, y, targetY) {
+            this.x = x;
+            this.y = y;
+            this.targetY = targetY;
+            this.speed = 5; // 减小上升速度
+            this.exploded = false;
+        }
+
+        update() {
+            if (this.y > this.targetY) {
+                this.y -= this.speed;
+            } else if (!this.exploded) {
+                this.exploded = true;
+                createParticles(this.x, this.y);
+            }
+        }
+
+        draw() {
+            if (!this.exploded) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = 'white';
+                ctx.fill();
+            }
+        }
+    }
+
+    class Particle {
+        constructor(x, y, hue) {
+            this.x = x;
+            this.y = y;
+            this.hue = hue;
+            this.gravity = 0.05; // 重力加速度，减小
+            this.speed = Math.random() * 2 + 1; // 减小初始速度
+            this.angle = getNumberInNormalDistribution(0.75,0.2) * Math.PI * 2; // 随机角度
+            this.vx = Math.cos(this.angle) * this.speed; // 水平速度分量
+            this.vy = Math.sin(this.angle) * this.speed; // 垂直速度分量
+            this.alpha = 1; // 透明度
+            this.decay = Math.random() * 0.01 + 0.005; // 透明度衰减
+            this.history = []; // 用于存储粒子轨迹
+        }
+
+        update() {
+            this.history.push({ x: this.x, y: this.y });
+            if (this.history.length > 25) { // 缩短历史记录长度
+                this.history.shift();
+            }
+
+            this.vy += this.gravity; // 受重力影响
+            this.x += this.vx; // 更新水平位置
+            this.y += this.vy; // 更新垂直位置
+
+            this.alpha -= this.decay; // 粒子逐渐消失
+        }
+
+        draw() {
+            ctx.beginPath();
+            for (let i = 0; i < this.history.length - 1; i++) {
+                const pos = this.history[i];
+                const nextPos = this.history[i + 1];
+                ctx.moveTo(pos.x, pos.y);
+                ctx.lineTo(nextPos.x, nextPos.y);
+                ctx.strokeStyle = `hsla(${this.hue}, 100%, 70%, ${i / this.history.length})`;
+                ctx.lineWidth = i / this.history.length * 2;
+                ctx.stroke();
+            }
+
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `hsla(${this.hue}, 100%, 70%, ${this.alpha})`;
+            ctx.fill();
+        }
+    }
+
+    function createParticles(x, y) {
+        const baseHue = Math.random() * 360;
+        for (let i = 0; i < 80; i++) {
+            particles.push(new Particle(x, y, baseHue));
+        }
+    }
+
+    function update() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = fireworks.length - 1; i >= 0; i--) {
+            fireworks[i].update();
+            fireworks[i].draw();
+            if (fireworks[i].exploded && particles.length === 0) {
+                fireworks.splice(i, 1);
+            }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            particles[i].draw();
+            if (particles[i].alpha <= 0) {
+                particles.splice(i, 1);
+            }
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    function createRandomFirework() {
+        const x = Math.random() * canvas.width;
+        const targetY = Math.random() * canvas.height * 0.5 + 50;
+        fireworks.push(new Firework(x, canvas.height, targetY));
+    }
+
+function getNumberInNormalDistribution(mean,std_dev){
+    return mean+(randomNormalDistribution()*std_dev);
+}
+
+function randomNormalDistribution(){
+    var u=0.0, v=0.0, w=0.0, c=0.0;
+    do{
+        //获得两个（-1,1）的独立随机变量
+        u=Math.random()*2-1.0;
+        v=Math.random()*2-1.0;
+        w=u*u+v*v;
+    }while(w==0.0||w>=1.0)
+    //这里就是 Box-Muller转换
+    c=Math.sqrt((-2*Math.log(w))/w);
+    //返回2个标准正态分布的随机数，封装进一个数组返回
+    //当然，因为这个函数运行较快，也可以扔掉一个
+    //return [u*c,v*c];
+    return u*c;
+}
+
+    setInterval(createRandomFirework, 1500);
+
+    update();
+</script>
+
+</body>
+</html>
